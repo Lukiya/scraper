@@ -1,4 +1,4 @@
-module github.com/Lukiya/scraper
+module github.com/Lukiya/scraper/go
 
 go 1.19
 
