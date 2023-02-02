@@ -31,11 +31,15 @@ func NewHttpSpider(options *HttpSpiderOptions) *HttpSpider {
 	if options != nil {
 		r.charset = options.Charset
 		r.client = options.Client
-	} else {
+	}
+
+	if r.client == nil {
+		// 使用默认Client
 		r.client = http.DefaultClient
 	}
 
 	if options != nil && options.ProxyURL != "" {
+		// 设置代理
 		r.client.Transport = &http.Transport{
 			Proxy: func(_ *http.Request) (*url.URL, error) {
 				return url.Parse(options.ProxyURL)
