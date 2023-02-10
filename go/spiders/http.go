@@ -20,9 +20,12 @@ type HttpSpider struct {
 }
 
 type HttpSpiderOptions struct {
-	Charset  string
+	// 可选
+	Charset string
+	// 可选
 	ProxyURL string
-	Client   *http.Client
+	// 可选
+	Client *http.Client
 }
 
 func NewHttpSpider(options *HttpSpiderOptions) *HttpSpider {
