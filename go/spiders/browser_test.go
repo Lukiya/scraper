@@ -12,10 +12,11 @@ import (
 // 使用代理例子
 func TestProxy(t *testing.T) {
 	spider := NewBrowserSpider(context.Background(), &BrowserSpiderOptions{
-		Proxy:    "http://cjtvtbtz-rotate:51bxj0ldmvdc@p.webshare.io",
-		Headless: false,
+		Proxy:     "http://cjtvtbtz-rotate:51bxj0ldmvdc@p.webshare.io",
+		Headless:  false,
+		Incognito: true,
 	})
-	defer spider.Cancels()
+	// defer spider.Cancels()
 
 	var html string
 	err := spider.Run(

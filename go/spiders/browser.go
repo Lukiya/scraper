@@ -20,33 +20,43 @@ type BrowserSpider struct {
 }
 
 type BrowserSpiderOptions struct {
-	Proxy    string
-	Headless bool
+	RemoteURL string
+	Proxy     string
+	Headless  bool
+	Incognito bool
 }
 
-func NewBrowserSpider(ctx context.Context, options *BrowserSpiderOptions) *BrowserSpider {
-	if options == nil {
-		options = &BrowserSpiderOptions{}
+func NewBrowserSpider(ctx context.Context, inOptions *BrowserSpiderOptions) *BrowserSpider {
+	if inOptions == nil {
+		inOptions = &BrowserSpiderOptions{
+			Headless:  false,
+			Incognito: true,
+		}
 	}
 
 	r := new(BrowserSpider)
 	r.CancelFuncs = make([]context.CancelFunc, 0)
 
-	var opts []chromedp.ExecAllocatorOption
-	if options.Headless {
-		opts = chromedp.DefaultExecAllocatorOptions[:]
+	opts := append(chromedp.DefaultExecAllocatorOptions[:])
 
-	} else {
-		opts = append(chromedp.DefaultExecAllocatorOptions[:],
+	if !inOptions.Headless {
+		opts = append(opts,
 			chromedp.Flag("headless", false),
 			chromedp.Flag("hide-scrollbars", false),
 			chromedp.Flag("mute-audio", false),
+			chromedp.Flag("incognito", true),
 		)
 	}
 
-	if options.Proxy != "" {
+	if inOptions.Incognito {
+		opts = append(opts,
+			chromedp.Flag("incognito", true),
+		)
+	}
+
+	if inOptions.Proxy != "" {
 		var err error
-		r.ProxyURL, err = url.Parse(options.Proxy)
+		r.ProxyURL, err = url.Parse(inOptions.Proxy)
 		if err != nil {
 			u.LogError(err)
 		}
@@ -56,8 +66,14 @@ func NewBrowserSpider(ctx context.Context, options *BrowserSpiderOptions) *Brows
 
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	r.CancelFuncs = append(r.CancelFuncs, cancel)
-	ctx, cancel = chromedp.NewExecAllocator(ctx, opts...)
-	r.CancelFuncs = append(r.CancelFuncs, cancel)
+	if inOptions.RemoteURL == "" {
+		ctx, cancel = chromedp.NewExecAllocator(ctx, opts...)
+		r.CancelFuncs = append(r.CancelFuncs, cancel)
+	} else {
+		ctx, cancel = chromedp.NewRemoteAllocator(ctx, inOptions.RemoteURL)
+		r.CancelFuncs = append(r.CancelFuncs, cancel)
+	}
+
 	ctx, cancel = chromedp.NewContext(ctx)
 	r.CancelFuncs = append(r.CancelFuncs, cancel)
 	r.Context = ctx
