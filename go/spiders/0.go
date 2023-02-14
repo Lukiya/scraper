@@ -194,10 +194,7 @@ func GetText(query *goquery.Selection, rule string) string {
 		r = query.Find(rule).Text()
 	}
 
-	r = strings.Replace(r, `\n`, "", -1)
-	r = _regMultiSpace.ReplaceAllString(r, " ")
-
-	return strings.TrimSpace(r)
+	return CleanText(r)
 }
 
 func GetHtml(query *goquery.Selection, rule string) string {
@@ -208,4 +205,16 @@ func GetHtml(query *goquery.Selection, rule string) string {
 	r, err := query.Find(rule).Html()
 	u.LogError(err)
 	return r
+}
+
+func CleanText(value string) string {
+	value = strings.Replace(value, `\n`, "", -1)
+	value = _regMultiSpace.ReplaceAllString(value, " ")
+
+	return strings.TrimSpace(value)
+}
+
+// 获取数据键
+func getDataKey(key string) string {
+	return key[1 : len(key)-1] // 去除收尾的{}符号
 }

@@ -1,0 +1,29 @@
+{
+    "data": {
+    },
+    "BrowserRules": [
+        {
+            "NAVI": "https://lingjingxingzhe.com"
+        },
+        {
+            "SETVAL": "{BookName}->#searchkey"
+        },
+        {
+            "CLICK": ".search_btn"
+        },
+        {
+            "LIST": {
+                "Selector": ".txt-list li:nth-child(n+2)",
+                "Each": [
+                    {
+                        "TEXT": ".s1->{AuthorName}"
+                    },
+                    {
+                        "TEXT": ".s2 a@href->{BookLink}"
+                    }
+                ],
+                "To": "{Books}"
+            }
+        }
+    ]
+}
