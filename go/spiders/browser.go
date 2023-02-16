@@ -2,6 +2,7 @@ package spiders
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/url"
@@ -12,6 +13,7 @@ import (
 	"github.com/chromedp/cdproto/fetch"
 	"github.com/chromedp/chromedp"
 	"github.com/syncfuture/go/serr"
+	"github.com/syncfuture/go/slog"
 	"github.com/syncfuture/go/u"
 )
 
@@ -22,11 +24,12 @@ type BrowserSpider struct {
 }
 
 type BrowserSpiderOptions struct {
-	RemoteURL string
-	Proxy     string
-	Headless  bool
-	Incognito bool
-	Timeout   time.Duration
+	RemoteURL  string
+	Proxy      string
+	WindowSize string
+	Headless   bool
+	Incognito  bool
+	Timeout    time.Duration
 }
 
 func NewBrowserSpider(ctx context.Context, inOptions *BrowserSpiderOptions) *BrowserSpider {
@@ -36,22 +39,27 @@ func NewBrowserSpider(ctx context.Context, inOptions *BrowserSpiderOptions) *Bro
 			Incognito: true,
 		}
 	}
+
 	if inOptions.Timeout == 0 {
 		inOptions.Timeout = 30 * time.Second
+	}
+
+	if inOptions.WindowSize == "" {
+		inOptions.WindowSize = "1280,900"
 	}
 
 	r := new(BrowserSpider)
 	r.CancelFuncs = make([]context.CancelFunc, 0)
 
-	opts := append(chromedp.DefaultExecAllocatorOptions[:])
+	opts := append(chromedp.DefaultExecAllocatorOptions[:],
+		chromedp.Flag("window-size", inOptions.WindowSize),
+	)
 
 	if !inOptions.Headless {
 		opts = append(opts,
 			chromedp.Flag("headless", false),
 			chromedp.Flag("hide-scrollbars", false),
 			chromedp.Flag("mute-audio", false),
-			chromedp.Flag("incognito", true),
-			chromedp.Flag("window-size", "1920,1080"),
 		)
 	}
 
@@ -153,23 +161,25 @@ func (self *BrowserSpider) Run(actions ...chromedp.Action) error {
 
 func (self *BrowserSpider) ExecuteRules(data map[string]interface{}, rules []interface{}, node *cdp.Node) error {
 	opts := make([]chromedp.QueryOption, 0)
-	if node != nil {
-		opts = append(opts, chromedp.FromNode(node))
-	}
+	// if n, ok := data["node"]; ok {
+	// 	opts = append(opts, chromedp.FromNode(n.(*cdp.Node)))
+	// }
 
 	for _, rule := range rules {
 		for k, v := range rule.(map[string]interface{}) {
 			switch k {
 			case "NAVI":
-				value := v.(string)
+				value := getValue(data, v)
 				err := self.Run(chromedp.Navigate(value))
 				if err != nil {
+					a, _ := json.Marshal(data)
+					slog.Error("#################", value, u.BytesToStr(a))
 					return err
 				}
 
 				break
 			case "SETVAL":
-				value := v.(string)
+				value := getValue(data, v)
 				array := strings.Split(value, "->")
 				// 从context里取数据
 				contextKey := getDataKey(array[0])
@@ -181,23 +191,28 @@ func (self *BrowserSpider) ExecuteRules(data map[string]interface{}, rules []int
 				}
 				break
 			case "CLICK":
-				value := v.(string)
+				value := getValue(data, v)
 				err := chromedp.Run(self.Context, chromedp.Click(value, opts...))
 				if err != nil {
 					return err
 				}
 				break
 			case "TEXT":
-				value := v.(string)
+				value := getValue(data, v)
 				array := strings.Split(value, "->")
 
 				var nodeText string
-				err := chromedp.Run(self.Context, self.GetText(array[0], &nodeText, opts...))
+				err := chromedp.Run(self.Context, self.GetText(array[0], &nodeText, node, opts...))
 				if err != nil {
 					return err
 				}
 
-				data[array[1]] = CleanText(nodeText)
+				if nodeText == "" {
+					print(array[1])
+				}
+
+				toKey := getDataKey(array[1])
+				data[toKey] = CleanText(nodeText)
 				break
 			case "LIST":
 				subRules := v.(map[string]interface{})
@@ -214,7 +229,7 @@ func (self *BrowserSpider) ExecuteRules(data map[string]interface{}, rules []int
 				items := make([]map[string]interface{}, 0)
 
 				for _, node := range nodes {
-					item := make(map[string]interface{}, 0)
+					item := map[string]interface{}{}
 					err := self.ExecuteRules(item, each, node)
 					if err != nil {
 						return err
@@ -233,12 +248,21 @@ func (self *BrowserSpider) ExecuteRules(data map[string]interface{}, rules []int
 	return nil
 }
 
-func (self *BrowserSpider) GetText(sel string, out *string, opts ...chromedp.QueryOption) chromedp.Action {
+func (self *BrowserSpider) GetText(sel string, out *string, node *cdp.Node, opts ...chromedp.QueryOption) chromedp.Action {
 	array := strings.Split(sel, "@")
 	if len(array) == 2 {
+		if node != nil && array[0] == "" {
+			return chromedp.ActionFunc(func(ctx context.Context) error {
+				*out = node.AttributeValue(array[1])
+				return nil
+			})
+		}
+
 		var ok bool
-		action := chromedp.AttributeValue(array[0], array[1], out, &ok, opts...)
-		return action
+		if node != nil {
+			opts = append(opts, chromedp.FromNode(node))
+		}
+		return chromedp.AttributeValue(array[0], array[1], out, &ok, opts...)
 	}
 
 	action := chromedp.Text(sel, out, opts...)

@@ -7,11 +7,11 @@ import (
 	"math/rand"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/syncfuture/go/serr"
 	"github.com/syncfuture/go/u"
-	"golang.org/x/text/encoding/htmlindex"
 )
 
 type HttpSpider struct {
@@ -102,17 +102,62 @@ func (self *HttpSpider) send(method, targetURL, bodyStr string) (*goquery.Docume
 	return doc, nil
 }
 
-func decode(reader io.Reader, charset string) (io.Reader, error) {
-	r := reader
+func (self *HttpSpider) ExecuteRules(data map[string]interface{}, rules []interface{}) error {
+	for _, rule := range rules {
+		for k, v := range rule.(map[string]interface{}) {
+			switch k {
+			case "GET":
+				value := getValue(data, v)
+				array := strings.Split(value, "->")
+				doc, err := self.Get(array[0])
+				if err != nil {
+					return err
+				}
 
-	e, err := htmlindex.Get(charset)
-	if err != nil {
-		return nil, serr.WithStack(err)
+				toKey := getDataKey(array[1])
+				data[toKey] = doc
+				break
+			case "TEXT":
+				value := getValue(data, v)
+				array := strings.Split(value, "->")
+				if len(array) != 3 {
+					break
+				}
+
+				fromKey := getDataKey(array[0])
+				query := data[fromKey].(*goquery.Selection)
+
+				nodeText := GetHttpText(query, array[0])
+
+				toKey := getDataKey(array[1])
+				data[toKey] = nodeText
+
+				break
+			case "LIST":
+				subRules := v.(map[string]interface{})
+				fromKey := getDataKey(subRules["From"].(string))
+				doc := data[fromKey].(*goquery.Document)
+				selector := subRules["Selector"].(string)
+				each := subRules["Each"].([]interface{})
+
+				items := make([]map[string]interface{}, 0)
+				doc.Find(selector).Each(func(i int, s *goquery.Selection) {
+					item := map[string]interface{}{"node": s}
+
+					err := self.ExecuteRules(item, each)
+					if u.LogError(err) {
+						return
+					}
+
+					items = append(items, item)
+				})
+
+				toKey := getDataKey(subRules["To"].(string))
+				data[toKey] = items
+				break
+			}
+		}
 	}
 
-	if name, _ := htmlindex.Name(e); name != "utf-8" {
-		r = e.NewDecoder().Reader(reader)
-	}
-
-	return r, nil
+	return nil
 }

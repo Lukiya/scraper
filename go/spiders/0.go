@@ -1,11 +1,14 @@
 package spiders
 
 import (
+	"io"
 	"regexp"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/syncfuture/go/serr"
 	"github.com/syncfuture/go/u"
+	"golang.org/x/text/encoding/htmlindex"
 )
 
 var (
@@ -176,9 +179,10 @@ var (
 	_regBR         = regexp.MustCompile("<br/?>")
 	_regMultiLine  = regexp.MustCompile(`[\n\s]+`)
 	_regMultiSpace = regexp.MustCompile(`\s{2,}`)
+	_regDataKey    = regexp.MustCompile(`\{([^}]+)\}`)
 )
 
-func GetText(query *goquery.Selection, rule string) string {
+func GetHttpText(query *goquery.Selection, rule string) string {
 	if rule == "" {
 		return ""
 	}
@@ -216,5 +220,41 @@ func CleanText(value string) string {
 
 // 获取数据键
 func getDataKey(key string) string {
-	return key[1 : len(key)-1] // 去除收尾的{}符号
+	return key[1 : len(key)-1] // 去除首尾的{}符号
+}
+
+func decode(reader io.Reader, charset string) (io.Reader, error) {
+	r := reader
+
+	e, err := htmlindex.Get(charset)
+	if err != nil {
+		return nil, serr.WithStack(err)
+	}
+
+	if name, _ := htmlindex.Name(e); name != "utf-8" {
+		r = e.NewDecoder().Reader(reader)
+	}
+
+	return r, nil
+}
+
+func getValue(data map[string]interface{}, v interface{}) string {
+	value := v.(string)
+
+	if !_regDataKey.MatchString(value) {
+		return value
+	}
+
+	// 取出所有的DataKeys
+	matches := _regDataKey.FindAllStringSubmatch(value, -1)
+
+	for _, match := range matches {
+		s, ok := data[match[1]].(string)
+		if !ok {
+			continue
+		}
+		value = strings.ReplaceAll(value, match[0], s)
+	}
+
+	return value
 }

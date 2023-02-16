@@ -1,29 +1,68 @@
 {
-    "data": {
+    "Data": {
+        "WindowSize": "1920,1080",
+        "RootURL": "https://lingjingxingzhe.com/",
+        "ChaptersURL": "https://lingjingxingzhe.com/book/38823"
     },
-    "BrowserRules": [
-        {
-            "NAVI": "https://lingjingxingzhe.com"
-        },
-        {
-            "SETVAL": "{BookName}->#searchkey"
-        },
-        {
-            "CLICK": ".search_btn"
-        },
-        {
-            "LIST": {
-                "Selector": ".txt-list li:nth-child(n+2)",
-                "Each": [
-                    {
-                        "TEXT": ".s1->{AuthorName}"
-                    },
-                    {
-                        "TEXT": ".s2 a@href->{BookLink}"
-                    }
-                ],
-                "To": "{Books}"
+    "SearchBooks": {
+        "Mode": "Browser",
+        "Rules": [
+            {
+                "NAVI": "https://lingjingxingzhe.com"
+            },
+            {
+                "SETVAL": "{BookName}->#searchkey"
+            },
+            {
+                "CLICK": ".search_btn"
+            },
+            {
+                "LIST": {
+                    "Selector": ".txt-list li:nth-child(n+2)",
+                    "Each": [
+                        {
+                            "TEXT": ".s1->{AuthorName}"
+                        },
+                        {
+                            "TEXT": ".s2 a@href->{BookURL}"
+                        }
+                    ],
+                    "To": "{Books}"
+                }
             }
-        }
-    ]
+        ]
+    },
+    "GetChapters": {
+        "Mode": "Browser",
+        "Rules": [
+            {
+                "NAVI": "{ChaptersURL}"
+            },
+            {
+                "LIST": {
+                    "Selector": "select[name='pageselect'] option",
+                    "Each": [
+                        {
+                            "TEXT": "@value->{Link}"
+                        },
+                        {
+                            "NAVI": "{Link}"
+                        },
+                        {
+                            "LIST": {
+                                "Selector": ".section-list li",
+                                "Each": [
+                                    {
+                                        "TEXT": "a@href->{ChapterURL}"
+                                    }
+                                ],
+                                "To": "{Chapters}"
+                            }
+                        }
+                    ],
+                    "To": "{ChapterPages}"
+                }
+            }
+        ]
+    }
 }

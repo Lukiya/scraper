@@ -32,24 +32,56 @@ func TestProxy(t *testing.T) {
 }
 
 // 执行规则
-func TestExecuteRules(t *testing.T) {
-	a, err := rules.ReadRulesFromFile("rules_sample.json")
+func TestBrowserSearchBooks(t *testing.T) {
+	config, err := rules.ReadRulesFromFile("rules_sample.json")
 	require.NoError(t, err)
-	require.NotEmpty(t, a)
+	require.NotEmpty(t, config)
 
-	spider := NewBrowserSpider(context.Background(), &BrowserSpiderOptions{
-		Proxy:     "http://cjtvtbtz-rotate:51bxj0ldmvdc@p.webshare.io",
-		Headless:  false,
-		Incognito: true,
-		Timeout:   3600 * time.Second,
-	})
-	defer spider.Cancel()
+	data := config["Data"].(map[string]interface{})
+	searchBook := config["SearchBooks"].(map[string]interface{})
+	searchBookMode := searchBook["Mode"].(string)
 
-	data := a["data"].(map[string]interface{})
-	rules := a["BrowserRules"].([]interface{})
-	data["BookName"] = "灵境行者"
+	if searchBookMode == "Browser" {
+		spider := NewBrowserSpider(context.Background(), &BrowserSpiderOptions{
+			Proxy:     "http://cjtvtbtz-rotate:51bxj0ldmvdc@p.webshare.io",
+			Headless:  false,
+			Incognito: true,
+			Timeout:   30 * time.Second,
+		})
+		defer spider.Cancel()
 
-	err = spider.ExecuteRules(data, rules, nil)
+		rules := searchBook["Rules"].([]interface{})
+		data["BookName"] = "灵境行者"
+
+		err = spider.ExecuteRules(data, rules, nil)
+		require.NoError(t, err)
+		require.NotEmpty(t, data["Books"])
+	}
+}
+
+// 执行规则
+func TestBrowserGetChatpers(t *testing.T) {
+	config, err := rules.ReadRulesFromFile("rules_sample.json")
 	require.NoError(t, err)
-	require.NotEmpty(t, data["Books"])
+	require.NotEmpty(t, config)
+
+	data := config["Data"].(map[string]interface{})
+	searchBook := config["GetChapters"].(map[string]interface{})
+	searchBookMode := searchBook["Mode"].(string)
+
+	if searchBookMode == "Browser" {
+		spider := NewBrowserSpider(context.Background(), &BrowserSpiderOptions{
+			// Proxy:     "http://cjtvtbtz-rotate:51bxj0ldmvdc@p.webshare.io",
+			Headless:  false,
+			Incognito: true,
+			Timeout:   3600 * time.Second,
+		})
+		defer spider.Cancel()
+
+		rules := searchBook["Rules"].([]interface{})
+
+		err = spider.ExecuteRules(data, rules, nil)
+		require.NoError(t, err)
+		require.NotEmpty(t, data["ChapterPages"])
+	}
 }
