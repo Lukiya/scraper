@@ -15,13 +15,13 @@ func TestGet(t *testing.T) {
 		ProxyURL: "http://cjtvtbtz-rotate:51bxj0ldmvdc@p.webshare.io",
 	})
 
-	doc, err := httpSpider.Get("https://www.xhwx3.com")
+	doc, err := httpSpider.GetDoc("https://www.xhwx3.com")
 	require.NoError(t, err)
 
 	token := GetHttpText(doc.Children(), "input[name='_token']@value")
 
 	body := fmt.Sprintf("_token=%s&kw=%s", token, url.QueryEscape("灵境行者"))
-	doc, err = httpSpider.Post("https://www.xhwx3.com/search", body)
+	doc, err = httpSpider.PostDoc("https://www.xhwx3.com/search", body)
 	require.NoError(t, err)
 
 	// print(doc.Html())

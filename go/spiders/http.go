@@ -54,15 +54,79 @@ func NewHttpSpider(options *HttpSpiderOptions) *HttpSpider {
 	return r
 }
 
-func (self *HttpSpider) Get(targetURL string) (*goquery.Document, error) {
-	return self.send("GET", targetURL, "")
+func (o *HttpSpider) GetDoc(targetURL string) (*goquery.Document, error) {
+	return o.sendDoc("GET", targetURL, "")
 }
 
-func (self *HttpSpider) Post(targetURL, body string) (*goquery.Document, error) {
-	return self.send("POST", targetURL, body)
+func (o *HttpSpider) PostDoc(targetURL, body string) (*goquery.Document, error) {
+	return o.sendDoc("POST", targetURL, body)
 }
 
-func (self *HttpSpider) send(method, targetURL, bodyStr string) (*goquery.Document, error) {
+func (o *HttpSpider) Get(targetURL string) (*http.Response, error) {
+	return o.send("GET", targetURL, "")
+}
+
+func (o *HttpSpider) Post(targetURL, body string) (*http.Response, error) {
+	return o.send("POST", targetURL, body)
+}
+
+func (o *HttpSpider) GetBodyString(targetURL string) (string, error) {
+	resp, err := o.send("GET", targetURL, "")
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	bytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	r := u.BytesToStr(bytes)
+	return r, nil
+}
+
+func (o *HttpSpider) PostBodyString(targetURL string) (string, error) {
+	resp, err := o.send("POST", targetURL, "")
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	bytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	r := u.BytesToStr(bytes)
+	return r, nil
+}
+
+func (o *HttpSpider) sendDoc(method, targetURL, bodyStr string) (*goquery.Document, error) {
+	resp, err := o.send(method, targetURL, bodyStr)
+	if err != nil {
+		return nil, serr.WithStack(err)
+	}
+	defer resp.Body.Close()
+
+	var htmlReader io.Reader
+	htmlReader = resp.Body
+	if o.charset != "" {
+		htmlReader, err = decode(resp.Body, o.charset)
+		if err != nil {
+			return nil, serr.WithStack(err)
+		}
+	}
+
+	doc, err := goquery.NewDocumentFromReader(htmlReader)
+	if err != nil {
+		return nil, serr.WithStack(err)
+	}
+
+	return doc, nil
+}
+
+func (o *HttpSpider) send(method, targetURL, bodyStr string) (*http.Response, error) {
 	userAgent := UserAgents[rand.Intn(len(UserAgents))]
 
 	var body io.Reader
@@ -79,44 +143,28 @@ func (self *HttpSpider) send(method, targetURL, bodyStr string) (*goquery.Docume
 		req.Header["Content-Type"] = []string{"application/x-www-form-urlencoded"}
 	}
 
-	resp, err := self.client.Do(req)
-	if err != nil {
-		return nil, serr.WithStack(err)
-	}
-	defer resp.Body.Close()
-
-	var htmlReader io.Reader
-	htmlReader = resp.Body
-	if self.charset != "" {
-		htmlReader, err = decode(resp.Body, self.charset)
-		if err != nil {
-			return nil, serr.WithStack(err)
-		}
-	}
-
-	doc, err := goquery.NewDocumentFromReader(htmlReader)
+	resp, err := o.client.Do(req)
 	if err != nil {
 		return nil, serr.WithStack(err)
 	}
 
-	return doc, nil
+	return resp, nil
 }
 
-func (self *HttpSpider) ExecuteRules(data map[string]interface{}, rules []interface{}) error {
+func (o *HttpSpider) ExecuteRules(data map[string]interface{}, rules []interface{}) error {
 	for _, rule := range rules {
 		for k, v := range rule.(map[string]interface{}) {
 			switch k {
 			case "GET":
 				value := getValue(data, v)
 				array := strings.Split(value, "->")
-				doc, err := self.Get(array[0])
+				doc, err := o.Get(array[0])
 				if err != nil {
 					return err
 				}
 
 				toKey := getDataKey(array[1])
 				data[toKey] = doc
-				break
 			case "TEXT":
 				value := getValue(data, v)
 				array := strings.Split(value, "->")
@@ -131,8 +179,6 @@ func (self *HttpSpider) ExecuteRules(data map[string]interface{}, rules []interf
 
 				toKey := getDataKey(array[1])
 				data[toKey] = nodeText
-
-				break
 			case "LIST":
 				subRules := v.(map[string]interface{})
 				fromKey := getDataKey(subRules["From"].(string))
@@ -144,7 +190,7 @@ func (self *HttpSpider) ExecuteRules(data map[string]interface{}, rules []interf
 				doc.Find(selector).Each(func(i int, s *goquery.Selection) {
 					item := map[string]interface{}{"node": s}
 
-					err := self.ExecuteRules(item, each)
+					err := o.ExecuteRules(item, each)
 					if u.LogError(err) {
 						return
 					}
@@ -154,7 +200,6 @@ func (self *HttpSpider) ExecuteRules(data map[string]interface{}, rules []interf
 
 				toKey := getDataKey(subRules["To"].(string))
 				data[toKey] = items
-				break
 			}
 		}
 	}

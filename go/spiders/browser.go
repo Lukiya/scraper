@@ -130,13 +130,13 @@ func NewBrowserSpider(ctx context.Context, inOptions *BrowserSpiderOptions) *Bro
 	return r
 }
 
-func (self *BrowserSpider) Cancel() {
-	for i := range self.CancelFuncs {
-		self.CancelFuncs[len(self.CancelFuncs)-1-i]()
+func (o *BrowserSpider) Cancel() {
+	for i := range o.CancelFuncs {
+		o.CancelFuncs[len(o.CancelFuncs)-1-i]()
 	}
 }
 
-func (self *BrowserSpider) Run(actions ...chromedp.Action) error {
+func (o *BrowserSpider) Run(actions ...chromedp.Action) error {
 	// 判断是否有导航动作
 	var hasNavi bool
 	for _, x := range actions {
@@ -147,11 +147,11 @@ func (self *BrowserSpider) Run(actions ...chromedp.Action) error {
 	}
 
 	// 有导航并有代理，且代理需要认证，必须添加WithHandleAuthRequests(true)
-	if hasNavi && self.ProxyURL != nil && self.ProxyURL.User != nil {
+	if hasNavi && o.ProxyURL != nil && o.ProxyURL.User != nil {
 		actions = append([]chromedp.Action{fetch.Enable().WithHandleAuthRequests(true)}, actions...)
 	}
 
-	err := chromedp.Run(self.Context, actions...)
+	err := chromedp.Run(o.Context, actions...)
 	if err != nil {
 		return serr.WithStack(err)
 	}
@@ -159,7 +159,7 @@ func (self *BrowserSpider) Run(actions ...chromedp.Action) error {
 	return nil
 }
 
-func (self *BrowserSpider) ExecuteRules(data map[string]interface{}, rules []interface{}, node *cdp.Node) error {
+func (o *BrowserSpider) ExecuteRules(data map[string]interface{}, rules []interface{}, node *cdp.Node) error {
 	opts := make([]chromedp.QueryOption, 0)
 	// if n, ok := data["node"]; ok {
 	// 	opts = append(opts, chromedp.FromNode(n.(*cdp.Node)))
@@ -170,14 +170,12 @@ func (self *BrowserSpider) ExecuteRules(data map[string]interface{}, rules []int
 			switch k {
 			case "NAVI":
 				value := getValue(data, v)
-				err := self.Run(chromedp.Navigate(value))
+				err := o.Run(chromedp.Navigate(value))
 				if err != nil {
 					a, _ := json.Marshal(data)
 					slog.Error("#################", value, u.BytesToStr(a))
 					return err
 				}
-
-				break
 			case "SETVAL":
 				value := getValue(data, v)
 				array := strings.Split(value, "->")
@@ -185,24 +183,22 @@ func (self *BrowserSpider) ExecuteRules(data map[string]interface{}, rules []int
 				contextKey := getDataKey(array[0])
 				contextValue := data[contextKey].(string)
 				// 将contextValue放入指定selector
-				err := chromedp.Run(self.Context, chromedp.SetValue(array[1], contextValue, opts...))
+				err := chromedp.Run(o.Context, chromedp.SetValue(array[1], contextValue, opts...))
 				if err != nil {
 					return err
 				}
-				break
 			case "CLICK":
 				value := getValue(data, v)
-				err := chromedp.Run(self.Context, chromedp.Click(value, opts...))
+				err := chromedp.Run(o.Context, chromedp.Click(value, opts...))
 				if err != nil {
 					return err
 				}
-				break
 			case "TEXT":
 				value := getValue(data, v)
 				array := strings.Split(value, "->")
 
 				var nodeText string
-				err := chromedp.Run(self.Context, self.GetText(array[0], &nodeText, node, opts...))
+				err := chromedp.Run(o.Context, o.GetText(array[0], &nodeText, node, opts...))
 				if err != nil {
 					return err
 				}
@@ -213,7 +209,6 @@ func (self *BrowserSpider) ExecuteRules(data map[string]interface{}, rules []int
 
 				toKey := getDataKey(array[1])
 				data[toKey] = CleanText(nodeText)
-				break
 			case "LIST":
 				subRules := v.(map[string]interface{})
 				selector := subRules["Selector"].(string)
@@ -221,7 +216,7 @@ func (self *BrowserSpider) ExecuteRules(data map[string]interface{}, rules []int
 
 				var nodes []*cdp.Node
 				opts = append(opts, chromedp.ByQueryAll)
-				err := chromedp.Run(self.Context, chromedp.Nodes(selector, &nodes, opts...))
+				err := chromedp.Run(o.Context, chromedp.Nodes(selector, &nodes, opts...))
 				if err != nil {
 					return err
 				}
@@ -230,7 +225,7 @@ func (self *BrowserSpider) ExecuteRules(data map[string]interface{}, rules []int
 
 				for _, node := range nodes {
 					item := map[string]interface{}{}
-					err := self.ExecuteRules(item, each, node)
+					err := o.ExecuteRules(item, each, node)
 					if err != nil {
 						return err
 					}
@@ -240,7 +235,6 @@ func (self *BrowserSpider) ExecuteRules(data map[string]interface{}, rules []int
 
 				toKey := getDataKey(subRules["To"].(string))
 				data[toKey] = items
-				break
 			}
 		}
 	}
@@ -248,7 +242,7 @@ func (self *BrowserSpider) ExecuteRules(data map[string]interface{}, rules []int
 	return nil
 }
 
-func (self *BrowserSpider) GetText(sel string, out *string, node *cdp.Node, opts ...chromedp.QueryOption) chromedp.Action {
+func (o *BrowserSpider) GetText(sel string, out *string, node *cdp.Node, opts ...chromedp.QueryOption) chromedp.Action {
 	array := strings.Split(sel, "@")
 	if len(array) == 2 {
 		if node != nil && array[0] == "" {
