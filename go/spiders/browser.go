@@ -9,12 +9,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/DreamvatLab/go/xbytes"
+	"github.com/DreamvatLab/go/xerr"
+	"github.com/DreamvatLab/go/xlog"
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/fetch"
 	"github.com/chromedp/chromedp"
-	"github.com/syncfuture/go/serr"
-	"github.com/syncfuture/go/slog"
-	"github.com/syncfuture/go/u"
 )
 
 type BrowserSpider struct {
@@ -73,7 +73,7 @@ func NewBrowserSpider(ctx context.Context, inOptions *BrowserSpiderOptions) *Bro
 		var err error
 		r.ProxyURL, err = url.Parse(inOptions.Proxy)
 		if err != nil {
-			u.LogError(err)
+			xerr.LogError(err)
 		}
 
 		opts = append(opts, chromedp.ProxyServer(fmt.Sprintf("%s://%s", r.ProxyURL.Scheme, r.ProxyURL.Host)))
@@ -153,7 +153,7 @@ func (o *BrowserSpider) Run(actions ...chromedp.Action) error {
 
 	err := chromedp.Run(o.Context, actions...)
 	if err != nil {
-		return serr.WithStack(err)
+		return xerr.WithStack(err)
 	}
 
 	return nil
@@ -173,7 +173,7 @@ func (o *BrowserSpider) ExecuteRules(data map[string]interface{}, rules []interf
 				err := o.Run(chromedp.Navigate(value))
 				if err != nil {
 					a, _ := json.Marshal(data)
-					slog.Error("#################", value, u.BytesToStr(a))
+					xlog.Error("#################", value, xbytes.BytesToStr(a))
 					return err
 				}
 			case "SETVAL":

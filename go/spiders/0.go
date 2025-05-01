@@ -5,9 +5,8 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/DreamvatLab/go/xerr"
 	"github.com/PuerkitoBio/goquery"
-	"github.com/syncfuture/go/serr"
-	"github.com/syncfuture/go/u"
 	"golang.org/x/text/encoding/htmlindex"
 )
 
@@ -207,7 +206,7 @@ func GetHtml(query *goquery.Selection, rule string) string {
 	}
 
 	r, err := query.Find(rule).Html()
-	u.LogError(err)
+	xerr.LogError(err)
 	return r
 }
 
@@ -228,7 +227,7 @@ func decode(reader io.Reader, charset string) (io.Reader, error) {
 
 	e, err := htmlindex.Get(charset)
 	if err != nil {
-		return nil, serr.WithStack(err)
+		return nil, xerr.WithStack(err)
 	}
 
 	if name, _ := htmlindex.Name(e); name != "utf-8" {

@@ -9,9 +9,9 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/DreamvatLab/go/xbytes"
+	"github.com/DreamvatLab/go/xerr"
 	"github.com/PuerkitoBio/goquery"
-	"github.com/syncfuture/go/serr"
-	"github.com/syncfuture/go/u"
 )
 
 type HttpSpider struct {
@@ -82,7 +82,7 @@ func (o *HttpSpider) GetBodyString(targetURL string) (string, error) {
 		return "", err
 	}
 
-	r := u.BytesToStr(bytes)
+	r := xbytes.BytesToStr(bytes)
 	return r, nil
 }
 
@@ -98,14 +98,14 @@ func (o *HttpSpider) PostBodyString(targetURL string) (string, error) {
 		return "", err
 	}
 
-	r := u.BytesToStr(bytes)
+	r := xbytes.BytesToStr(bytes)
 	return r, nil
 }
 
 func (o *HttpSpider) sendDoc(method, targetURL, bodyStr string) (*goquery.Document, error) {
 	resp, err := o.send(method, targetURL, bodyStr)
 	if err != nil {
-		return nil, serr.WithStack(err)
+		return nil, xerr.WithStack(err)
 	}
 	defer resp.Body.Close()
 
@@ -114,13 +114,13 @@ func (o *HttpSpider) sendDoc(method, targetURL, bodyStr string) (*goquery.Docume
 	if o.charset != "" {
 		htmlReader, err = decode(resp.Body, o.charset)
 		if err != nil {
-			return nil, serr.WithStack(err)
+			return nil, xerr.WithStack(err)
 		}
 	}
 
 	doc, err := goquery.NewDocumentFromReader(htmlReader)
 	if err != nil {
-		return nil, serr.WithStack(err)
+		return nil, xerr.WithStack(err)
 	}
 
 	return doc, nil
@@ -131,12 +131,12 @@ func (o *HttpSpider) send(method, targetURL, bodyStr string) (*http.Response, er
 
 	var body io.Reader
 	if bodyStr != "" {
-		body = bytes.NewReader(u.StrToBytes(bodyStr))
+		body = bytes.NewReader(xbytes.StrToBytes(bodyStr))
 	}
 
 	req, err := http.NewRequest(method, targetURL, body)
 	if err != nil {
-		return nil, serr.WithStack(err)
+		return nil, xerr.WithStack(err)
 	}
 	req.Header = http.Header{"User-Agent": []string{userAgent}}
 	if method == http.MethodPost {
@@ -145,7 +145,7 @@ func (o *HttpSpider) send(method, targetURL, bodyStr string) (*http.Response, er
 
 	resp, err := o.client.Do(req)
 	if err != nil {
-		return nil, serr.WithStack(err)
+		return nil, xerr.WithStack(err)
 	}
 
 	return resp, nil
@@ -191,7 +191,7 @@ func (o *HttpSpider) ExecuteRules(data map[string]interface{}, rules []interface
 					item := map[string]interface{}{"node": s}
 
 					err := o.ExecuteRules(item, each)
-					if u.LogError(err) {
+					if xerr.LogError(err) {
 						return
 					}
 

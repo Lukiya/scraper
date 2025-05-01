@@ -4,13 +4,13 @@ import (
 	"encoding/json"
 	"os"
 
-	"github.com/syncfuture/go/serr"
+	"github.com/DreamvatLab/go/xerr"
 )
 
 func ReadRulesFromFile(filename string) (map[string]interface{}, error) {
 	jsonBytes, err := os.ReadFile("rules_sample.json")
 	if err != nil {
-		return nil, serr.WithStack(err)
+		return nil, xerr.WithStack(err)
 	}
 
 	rules, err := ReadRules(jsonBytes)
@@ -27,7 +27,7 @@ func ReadRules(jsonBytes []byte) (map[string]interface{}, error) {
 
 	err = json.Unmarshal(jsonBytes, &r)
 	if err != nil {
-		return nil, serr.WithStack(err)
+		return nil, xerr.WithStack(err)
 	}
 
 	return r, nil

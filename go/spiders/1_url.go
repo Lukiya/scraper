@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/syncfuture/go/u"
+	"github.com/DreamvatLab/go/xerr"
 )
 
 func AbsURL(baseURL string, urls ...string) string {
@@ -27,7 +27,7 @@ func AbsURL(baseURL string, urls ...string) string {
 	if strings.HasPrefix(urls[0], "/") {
 		// /开头，表示相对于根地址
 		baseUri, err := url.Parse(baseURL)
-		if u.LogError(err) {
+		if xerr.LogError(err) {
 			return ""
 		}
 
@@ -48,7 +48,7 @@ func AbsURL(baseURL string, urls ...string) string {
 
 func JoinURLs(baseURL string, urls ...string) string {
 	r, err := url.JoinPath(baseURL, urls...)
-	if u.LogError(err) {
+	if xerr.LogError(err) {
 		return ""
 	}
 	return r
